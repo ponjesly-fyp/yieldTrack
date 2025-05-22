@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
-
-import { useState } from "react"
-import { Bell, Droplet, Droplets, Leaf, Thermometer, Timer, Wind, BarChart, LineChart } from "lucide-react"
+import React, { useEffect, useState } from 'react'
+import { Bell, Droplet, Droplets, Leaf, Thermometer, Timer, Wind, BarChart, LineChart, WindIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Bubbles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -24,33 +24,11 @@ import {
   Legend,
 } from "recharts"
 import { ScrollArea } from "@/components/ui/scroll-area"
-
-// Sample data for charts
-const temperatureData = [
-  { time: "00:00", value: 22 },
-  { time: "04:00", value: 21 },
-  { time: "08:00", value: 23 },
-  { time: "12:00", value: 26 },
-  { time: "16:00", value: 25 },
-  { time: "20:00", value: 24 },
-  { time: "24:00", value: 22 },
-]
-
-const humidityData = [
-  { time: "00:00", value: 65 },
-  { time: "04:00", value: 68 },
-  { time: "08:00", value: 62 },
-  { time: "12:00", value: 55 },
-  { time: "16:00", value: 58 },
-  { time: "20:00", value: 60 },
-  { time: "24:00", value: 63 },
-]
-
-const soilMoistureData = [
-  { name: "Field 1", value: 68 },
-  { name: "Field 2", value: 75 },
-  { name: "Field 3", value: 42 },
-]
+import TemperatureChart from "./temperature"
+import HumidityChart from "./humidity"
+import Co2Chart from "./co2"
+import MoistureData from "./moisture"
+import IrrigationControl from "./irrigation-control"
 
 const cropYieldData = [
   { name: "Wheat", current: 85, previous: 70 },
@@ -107,23 +85,46 @@ const notifications = [
   },
 ]
 
-type FieldKey = 'field1' | 'field2' | 'field3';
-
 export default function Dashboard() {
-  const [irrigationStatus, setIrrigationStatus] = useState<Record<FieldKey, boolean>>({
-    field1: false,
-    field2: false,
-    field3: true,
-  })
-  const [autoIrrigation, setAutoIrrigation] = useState(true)
-
-  const toggleIrrigation = (field: FieldKey) => {
-    setIrrigationStatus((prev) => ({
-      ...prev,
-      [field]: !prev[field],
-    }))
-  }
-
+  const [temp, setTemp] = useState(0)
+  const [humidity, setHumidity] = useState(0)
+  const [co2Level, setCo2Level] = useState(0)
+  const [moisture, setMoisture] = useState(0)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    const fetchData = async () => {
+      const response = await fetch(`https://plant-monitoring-3ba31-default-rtdb.asia-southeast1.firebasedatabase.app/.json`);
+      const data = await response.json();
+      setTemp(data.temperature)
+      setMoisture(data.moisture)
+      setCo2Level(data.gas)
+      setHumidity(data.humidity)
+    };
+    const startPolling = () => {
+      fetchData(); // fetch immediately
+      interval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchData();
+        }
+      }, 5000);
+    };
+    const stopPolling = () => {
+      clearInterval(interval);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    startPolling();
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Top Navigation Bar */}
@@ -135,384 +136,20 @@ export default function Dashboard() {
       </header>
 
       {/* Dashboard Content */}
-      <main className="flex-1 overflow-auto p-4 md:p-6">
+      <main className="flex overflow-auto p-4 md:p-6">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* DHT11 Sensor Card - Temperature */}
-          <Card className="overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-medium">Temperature</CardTitle>
-              <Thermometer className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">24°C</div>
-              <p className="text-xs text-muted-foreground">Optimal range: 20-25°C</p>
-              <div className="h-[120px] mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsLineChart data={temperatureData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="#888888" tickLine={false} axisLine={false} />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="rounded-lg border bg-background p-2 shadow-sm">
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="flex flex-col">
-                                  <span className="text-[0.70rem] uppercase text-muted-foreground">Time</span>
-                                  <span className="font-bold text-xs">{payload[0].payload.time}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-[0.70rem] uppercase text-muted-foreground">Temperature</span>
-                                  <span className="font-bold text-xs">{payload[0].value}°C</span>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        }
-                        return null
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#4ade80"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4 }}
-                    />
-                  </RechartsLineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
+          <TemperatureChart r_temp={temp}/>
           {/* DHT11 Sensor Card - Humidity */}
-          <Card className="overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-medium">Humidity</CardTitle>
-              <Droplets className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">62%</div>
-              <p className="text-xs text-muted-foreground">Optimal range: 50-70%</p>
-              <div className="h-[120px] mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={humidityData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="#888888" tickLine={false} axisLine={false} />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="rounded-lg border bg-background p-2 shadow-sm">
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="flex flex-col">
-                                  <span className="text-[0.70rem] uppercase text-muted-foreground">Time</span>
-                                  <span className="font-bold text-xs">{payload[0].payload.time}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-[0.70rem] uppercase text-muted-foreground">Humidity</span>
-                                  <span className="font-bold text-xs">{payload[0].value}%</span>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        }
-                        return null
-                      }}
-                    />
-                    <Area type="monotone" dataKey="value" stroke="#60a5fa" fill="url(#colorHumidity)" strokeWidth={2} />
-                    <defs>
-                      <linearGradient id="colorHumidity" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
+          <HumidityChart r_humidity={humidity}/>
+          {/* CO2 level */}
+          <Co2Chart r_co2={co2Level}/>
           {/* Soil Moisture Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-medium">Soil Moisture</CardTitle>
-              <Droplets className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">68%</div>
-                <Badge variant="outline" className="bg-green-500/10 text-green-500">
-                  Optimal
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">Optimal range: 60-80%</p>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Field 1</span>
-                  <span>68%</span>
-                </div>
-                <Progress value={68} className="h-2 bg-muted" />
-
-                <div className="flex items-center justify-between text-sm">
-                  <span>Field 2</span>
-                  <span>75%</span>
-                </div>
-                <Progress value={75} className="h-2 bg-muted" />
-
-                <div className="flex items-center justify-between text-sm">
-                  <span>Field 3</span>
-                  <span className="text-amber-500">42%</span>
-                </div>
-                <Progress value={42} className="h-2 bg-muted" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Gas Detection Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-medium">Gas Detection</CardTitle>
-              <Wind className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Ammonia</span>
-                    <Badge variant="outline" className="bg-green-500/10 text-green-500">
-                      Normal
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Progress value={25} className="h-2 bg-muted" />
-                    <span className="text-xs">25 ppm</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Methane</span>
-                    <Badge variant="outline" className="bg-amber-500/10 text-amber-500">
-                      Elevated
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Progress value={65} className="h-2 bg-muted"/>
-                    <span className="text-xs">65 ppm</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">CO2</span>
-                    <Badge variant="outline" className="bg-green-500/10 text-green-500">
-                      Normal
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Progress value={40} className="h-2 bg-muted"/>
-                    <span className="text-xs">400 ppm</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Nitrogen</span>
-                    <Badge variant="outline" className="bg-green-500/10 text-green-500">
-                      Normal
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Progress value={30} className="h-2 bg-muted"/>
-                    <span className="text-xs">30 ppm</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Irrigation Control Panel */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <Droplet className="h-5 w-5 text-blue-500" />
-                <CardTitle>Irrigation Control</CardTitle>
-              </div>
-              <Droplet className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Droplet className="h-5 w-5 text-blue-500" />
-                    <span className="font-medium">Automated Irrigation</span>
-                  </div>
-                  <Switch
-                    checked={autoIrrigation}
-                    onCheckedChange={setAutoIrrigation}
-                    aria-label="Toggle automated irrigation"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span>Field 1</span>
-                      <Badge
-                        variant={irrigationStatus.field1 ? "default" : "outline"}
-                        className={irrigationStatus.field1 ? "bg-blue-500" : ""}
-                      >
-                        {irrigationStatus.field1 ? "ON" : "OFF"}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant={irrigationStatus.field1 ? "destructive" : "default"}
-                      size="sm"
-                      onClick={() => toggleIrrigation("field1")}
-                      disabled={autoIrrigation}
-                    >
-                      {irrigationStatus.field1 ? "Turn Off" : "Turn On"}
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span>Field 2</span>
-                      <Badge
-                        variant={irrigationStatus.field2 ? "default" : "outline"}
-                        className={irrigationStatus.field2 ? "bg-blue-500" : ""}
-                      >
-                        {irrigationStatus.field2 ? "ON" : "OFF"}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant={irrigationStatus.field2 ? "destructive" : "default"}
-                      size="sm"
-                      onClick={() => toggleIrrigation("field2")}
-                      disabled={autoIrrigation}
-                    >
-                      {irrigationStatus.field2 ? "Turn Off" : "Turn On"}
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span>Field 3</span>
-                      <Badge
-                        variant={irrigationStatus.field3 ? "default" : "outline"}
-                        className={irrigationStatus.field3 ? "bg-blue-500" : ""}
-                      >
-                        {irrigationStatus.field3 ? "ON" : "OFF"}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant={irrigationStatus.field3 ? "destructive" : "default"}
-                      size="sm"
-                      onClick={() => toggleIrrigation("field3")}
-                      disabled={autoIrrigation}
-                    >
-                      {irrigationStatus.field3 ? "Turn Off" : "Turn On"}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-3 bg-muted/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Timer className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Automation Status</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {autoIrrigation
-                      ? "Automated irrigation is active. System will irrigate when soil moisture drops below 50%."
-                      : "Automated irrigation is disabled. Manual control is enabled."}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Soil Nutrition Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <Leaf className="h-5 w-5 text-green-500" />
-                <CardTitle>Soil Nutrition</CardTitle>
-              </div>
-              <Leaf className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium">pH Value</span>
-                    <span className="text-xl font-bold">6.8</span>
-                  </div>
-                  <div className="relative h-2 w-full rounded-full bg-muted">
-                    <div className="absolute inset-0 flex">
-                      <div className="w-1/7 bg-red-500 rounded-l-full"></div>
-                      <div className="w-1/7 bg-orange-500"></div>
-                      <div className="w-1/7 bg-yellow-500"></div>
-                      <div className="w-1/7 bg-green-500"></div>
-                      <div className="w-1/7 bg-blue-500"></div>
-                      <div className="w-1/7 bg-indigo-500"></div>
-                      <div className="w-1/7 bg-purple-500 rounded-r-full"></div>
-                    </div>
-                    <div
-                      className="absolute top-0 h-4 w-4 -translate-x-1/2 rounded-full border-2 border-white bg-black"
-                      style={{ left: "68%" }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-                    <span>Acidic (0)</span>
-                    <span>Neutral (7)</span>
-                    <span>Alkaline (14)</span>
-                  </div>
-                </div>
-
-                <div className="space-y-3 mt-4">
-                  <div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Nitrogen (N)</span>
-                      <span>65 mg/kg</span>
-                    </div>
-                    <Progress value={65} className="h-2 bg-muted"/>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Phosphorus (P)</span>
-                      <span>42 mg/kg</span>
-                    </div>
-                    <Progress value={42} className="h-2 bg-muted"/>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Potassium (K)</span>
-                      <span>78 mg/kg</span>
-                    </div>
-                    <Progress value={78} className="h-2 bg-muted"/>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Organic Matter</span>
-                      <span>3.2%</span>
-                    </div>
-                    <Progress value={32} className="h-2 bg-muted"/>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-3 bg-muted/50">
-                  <p className="text-xs text-muted-foreground">
-                    Soil analysis indicates good overall fertility. Consider phosphorus supplementation for optimal crop
-                    growth.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+          <div className='col-span-2'>
+            <MoistureData r_moisture={moisture}/>
+            {/* Irrigation Control Panel */}
+          </div>
+          <IrrigationControl />
           {/* Historical Comparison Panel */}
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -583,32 +220,25 @@ export default function Dashboard() {
                 <Bell className="h-5 w-5 text-amber-500" />
                 <CardTitle>Alerts & Notifications</CardTitle>
               </div>
-              <Bell className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
+            <CardContent className='overflow-y-auto'>
               <ScrollArea className="h-[300px] pr-4">
                 <div className="space-y-4">
                   {notifications.map((notification) => (
                     <div key={notification.id} className="flex gap-3 rounded-lg border p-3">
                       <div
-                        className={`mt-0.5 rounded-full p-1 ${
-                          notification.severity === "high"
-                            ? "bg-red-500/10 text-red-500"
-                            : notification.severity === "medium"
-                              ? "bg-amber-500/10 text-amber-500"
-                              : "bg-green-500/10 text-green-500"
-                        }`}
+                        className={`mt-0.5 rounded-full h-7 w-7 flex items-center justify-center p-1 ${notification.severity === "high"
+                          ? "bg-red-500/10 text-red-500"
+                          : notification.severity === "medium"
+                            ? "bg-amber-500/10 text-amber-500"
+                            : "bg-green-500/10 text-green-500"
+                          }`}
                       >
                         <Bell className="h-4 w-4" />
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <h4 className="font-medium">{notification.title}</h4>
-                          {notification.severity === "high" && (
-                            <Badge variant="destructive" className="h-5 text-[10px]">
-                              Urgent
-                            </Badge>
-                          )}
                         </div>
                         <p className="text-xs text-muted-foreground">{notification.time}</p>
                       </div>
