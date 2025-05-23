@@ -1,7 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Madimi+One&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
+body::-webkit-scrollbar {
+  display: none;
+}
 @layer base {
   :root {
     --background: 0 0% 100%;

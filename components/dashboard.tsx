@@ -1,14 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 import React, { useEffect, useState } from 'react'
-import { Bell, Droplet, Droplets, Leaf, Thermometer, Timer, Wind, BarChart, LineChart, WindIcon } from "lucide-react"
+import { Bell, Leaf, BarChart} from "lucide-react"
+import { Sprout } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Bubbles } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
 import {
   AreaChart,
   Area,
@@ -29,7 +24,7 @@ import HumidityChart from "./humidity"
 import Co2Chart from "./co2"
 import MoistureData from "./moisture"
 import IrrigationControl from "./irrigation-control"
-
+import PredictionDashboard from './prediction-card'
 const cropYieldData = [
   { name: "Wheat", current: 85, previous: 70 },
   { name: "Corn", current: 75, previous: 80 },
@@ -84,12 +79,12 @@ const notifications = [
     severity: "medium",
   },
 ]
-
 export default function Dashboard() {
   const [temp, setTemp] = useState(0)
   const [humidity, setHumidity] = useState(0)
   const [co2Level, setCo2Level] = useState(0)
   const [moisture, setMoisture] = useState(0)
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     const fetchData = async () => {
@@ -126,27 +121,26 @@ export default function Dashboard() {
     };
   }, []);
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background font-outfit">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-10 flex h-16 items-center border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center gap-3">
-          <Leaf className="h-8 w-8 text-green-500" />
-          <h1 className="text-xl font-semibold">YieldTrack</h1>
+        <div className="flex items-center gap-1 ml-5">
+          <Sprout className="h-7 w-7 text-green-500 mb-[7px]" />
+          <h1 className="text-xl font-borel">YieldTrack</h1>
         </div>
       </header>
-
       {/* Dashboard Content */}
-      <main className="flex overflow-auto p-4 md:p-6">
+      <main className="flex overflow-auto p-4 md:p-6 md:ml-4">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* DHT11 Sensor Card - Temperature */}
-          <TemperatureChart r_temp={temp}/>
+          <TemperatureChart r_temp={temp} />
           {/* DHT11 Sensor Card - Humidity */}
-          <HumidityChart r_humidity={humidity}/>
+          <HumidityChart r_humidity={humidity} />
           {/* CO2 level */}
-          <Co2Chart r_co2={co2Level}/>
+          <Co2Chart r_co2={co2Level} />
           {/* Soil Moisture Card */}
           <div className='col-span-2'>
-            <MoistureData r_moisture={moisture}/>
+            <MoistureData r_moisture={moisture} />
             {/* Irrigation Control Panel */}
           </div>
           <IrrigationControl />
@@ -157,7 +151,6 @@ export default function Dashboard() {
                 <BarChart className="h-5 w-5 text-green-500" />
                 <CardTitle>Historical Yield Comparison</CardTitle>
               </div>
-              <BarChart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
@@ -248,85 +241,9 @@ export default function Dashboard() {
               </ScrollArea>
             </CardContent>
           </Card>
-
-          {/* Profit Forecast Chart */}
-          <Card className="col-span-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <LineChart className="h-5 w-5 text-blue-500" />
-                <CardTitle>Profit Forecast</CardTitle>
-              </div>
-              <LineChart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="chart">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="chart">Chart</TabsTrigger>
-                  <TabsTrigger value="table">Table</TabsTrigger>
-                </TabsList>
-                <TabsContent value="chart">
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsBarChart data={profitData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                        <XAxis dataKey="name" stroke="#888888" />
-                        <YAxis stroke="#888888" />
-                        <Tooltip
-                          content={({ active, payload }) => {
-                            if (active && payload && payload.length) {
-                              return (
-                                <div className="rounded-lg border bg-background p-2 shadow-sm">
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="flex flex-col">
-                                      <span className="text-[0.70rem] uppercase text-muted-foreground">Month</span>
-                                      <span className="font-bold">{payload[0].payload.name}</span>
-                                    </div>
-                                    {payload.map((entry) => (
-                                      <div key={entry.dataKey} className="flex flex-col">
-                                        <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                          {entry.dataKey}
-                                        </span>
-                                        <span className="font-bold" style={{ color: entry.color }}>
-                                          ${entry.value}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )
-                            }
-                            return null
-                          }}
-                        />
-                        <Legend />
-                        <Bar dataKey="wheat" name="Wheat" stackId="a" fill="#4ade80" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="corn" name="Corn" stackId="a" fill="#60a5fa" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="soybeans" name="Soybeans" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} />
-                      </RechartsBarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </TabsContent>
-                <TabsContent value="table">
-                  <div className="rounded-md border">
-                    <div className="grid grid-cols-4 border-b px-4 py-2 font-medium">
-                      <div>Month</div>
-                      <div>Wheat</div>
-                      <div>Corn</div>
-                      <div>Soybeans</div>
-                    </div>
-                    {profitData.map((item) => (
-                      <div key={item.name} className="grid grid-cols-4 border-b px-4 py-2 last:border-0">
-                        <div>{item.name}</div>
-                        <div>${item.wheat}</div>
-                        <div>${item.corn}</div>
-                        <div>${item.soybeans}</div>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+          <div className='w-full col-span-full'>
+            <PredictionDashboard temperature={22} humidity={65} co2={1020} moisture={80}/>
+          </div>
         </div>
       </main>
     </div>

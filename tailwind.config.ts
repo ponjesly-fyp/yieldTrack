@@ -19,6 +19,10 @@ const config = {
         "2xl": "1400px",
       },
     },
+    fontFamily:{
+      outfit:"Sora",
+      borel:"Madimi One"
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
